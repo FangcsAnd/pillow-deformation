@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>枕头形变模拟 - 记忆棉</title>
+    <style>
+        :root {
+            --bg: #1a1a2e;
+            --panel-bg: rgba(20, 20, 40, 0.95);
+            --text: #e0e0e0;
+            --accent: #4da6ff;
+            --slider-track: #333;
+            --slider-fill: #4da6ff;
+            --border: rgba(255,255,255,0.1);
+            --radius: 12px;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            background: var(--bg);
+            font-family: -apple-system, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+
+        #canvas-container {
+            position: fixed;
+            inset: 0;
+            z-index: 0;
+        }
+        #canvas-container canvas { display: block; }
+
+        #panel {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 10;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 24px;
+            width: 280px;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            color: var(--text);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+        }
+
+        #panel h2 {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 20px;
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+
+        .control-group {
+            margin-bottom: 18px;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 13px;
+            margin-bottom: 6px;
+            color: #b0b0c0;
+        }
+
+        .control-group label span.val {
+            color: var(--accent);
+            font-weight: 600;
+            font-size: 13px;
+            min-width: 50px;
+            text-align: right;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 3px;
+            background: var(--slider-track);
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: var(--accent);
+            cursor: pointer;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            transition: transform 0.1s;
+        }
+        input[type="range"]::-webkit-slider-thumb:active {
+            transform: scale(1.15);
+        }
+
+        .divider {
+            border: none;
+            border-top: 1px solid var(--border);
+            margin: 16px 0;
+        }
+
+        #info-bar {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 8px 20px;
+            font-size: 12px;
+            color: #888;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            display: flex;
+            gap: 20px;
+        }
+
+        #info-bar span {
+            white-space: nowrap;
+        }
+        #info-bar .highlight {
+            color: var(--accent);
+            font-weight: 600;
+        }
+
+        #reset-btn {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 10;
+            background: var(--panel-bg);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 16px;
+            color: var(--text);
+            font-size: 13px;
+            cursor: pointer;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            transition: all 0.2s;
+        }
+        #reset-btn:hover {
+            background: var(--accent);
+            border-color: var(--accent);
+            color: #000;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container"></div>
+
+    <button id="reset-btn" title="重置视角">↺ 重置视角</button>
+
+    <div id="panel">
+        <h2>🛏️ 枕头形变模拟</h2>
+
+        <div class="control-group">
+            <label>海绵硬度 LX-F <span class="val" id="val-hardness">30°</span></label>
+            <input type="range" id="hardness" min="0" max="100" value="30" step="1">
+        </div>
+
+        <div class="control-group">
+            <label>头部重量 <span class="val" id="val-weight">5 kg</span></label>
+            <input type="range" id="weight" min="1" max="15" value="5" step="0.1">
+        </div>
+
+        <hr class="divider">
+
+        <div class="control-group">
+            <label>前后位置 (Z) <span class="val" id="val-posZ">0 cm</span></label>
+            <input type="range" id="posZ" min="-15" max="15" value="0" step="0.5">
+        </div>
+
+        <div class="control-group">
+            <label>左右位置 (X) <span class="val" id="val-posX">0 cm</span></label>
+            <input type="range" id="posX" min="-20" max="20" value="0" step="0.5">
+        </div>
+
+        <div class="control-group">
+            <label>头部Y偏移 <span class="val" id="val-posY">自动</span></label>
+            <input type="range" id="posY" min="-5" max="5" value="0" step="0.1">
+        </div>
+
+        <hr class="divider">
+
+        <div class="control-group" style="margin-bottom:10px;">
+            <label style="margin-bottom:8px;">导入 3D 模型 (STL)</label>
+            <div style="display:flex;gap:8px;">
+                <label for="pillow-file" id="import-pillow-btn" style="flex:1;padding:6px 0;background:#335;border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#ccc;cursor:pointer;font-size:11px;text-align:center;display:block;">📦 枕头模型</label>
+                <label for="head-file" id="import-head-btn" style="flex:1;padding:6px 0;background:#335;border:1px solid rgba(255,255,255,0.15);border-radius:6px;color:#ccc;cursor:pointer;font-size:11px;text-align:center;display:block;">🗿 头部模型</label>
+            </div>
+            <input type="file" id="pillow-file" accept=".stl" style="position:absolute;opacity:0;width:0;height:0;overflow:hidden;">
+            <input type="file" id="head-file" accept=".stl" style="position:absolute;opacity:0;width:0;height:0;overflow:hidden;">
+            <div id="import-status" style="font-size:11px;color:#ff9944;margin-top:6px;text-align:center;min-height:16px;"></div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="control-group" style="margin-bottom:8px;">
+            <label style="margin-bottom:6px;">旋转模型 (90°)</label>
+
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px;">
+                <span style="font-size:10px;color:#888;min-width:32px;">枕头</span>
+                <button class="rot-btn" data-target="pillow" data-axis="x" data-dir="1" style="flex:1;padding:3px 0;background:#2a2a40;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;">X+90</button>
+                <button class="rot-btn" data-target="pillow" data-axis="x" data-dir="-1" style="flex:1;padding:3px 0;background:#2a2a40;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;">X-90</button>
+                <button class="rot-btn" data-target="pillow" data-axis="y" data-dir="1" style="flex:1;padding:3px 0;background:#2a2a40;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;">Y+90</button>
+                <button class="rot-btn" data-target="pillow" data-axis="y" data-dir="-1" style="flex:1;padding:3px 0;background:#2a2a40;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;">Y-90</button>
+                <button class="rot-btn" data-target="pillow" data-axis="z" data-dir="1" style="flex:1;padding:3px 0;background:#2a2a40;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;">Z+90</button>
+                <button class="rot-btn" data-target="pillow" data-axis="z" data-dir="-1" style="flex:1;padding:3px 0;background:#2a2a40;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;">Z-90</button>
+            </div>
+
+            <div style="display:flex;align-items:center;gap:6px;">
+                <span style="font-size:10px;color:#888;min-width:32px;">头部</span>
+                <button class="rot-btn" data-target="head" data-axis="x" data-dir="1" style="flex:1;padding:3px 0;background:#2a2a40;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;">X+90</button>
+                <button class="rot-btn" data-target="head" data-axis="x" data-dir="-1" style="flex:1;padding:3px 0;background:#2a2a40;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;">X-90</button>
+                <button class="rot-btn" data-target="head" data-axis="y" data-dir="1" style="flex:1;padding:3px 0;background:#2a2a40;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;">Y+90</button>
+                <button class="rot-btn" data-target="head" data-axis="y" data-dir="-1" style="flex:1;padding:3px 0;background:#2a2a40;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;">Y-90</button>
+                <button class="rot-btn" data-target="head" data-axis="z" data-dir="1" style="flex:1;padding:3px 0;background:#2a2a40;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;">Z+90</button>
+                <button class="rot-btn" data-target="head" data-axis="z" data-dir="-1" style="flex:1;padding:3px 0;background:#2a2a40;border:1px solid rgba(255,255,255,0.12);border-radius:4px;color:#aaa;cursor:pointer;font-size:10px;">Z-90</button>
+            </div>
+        </div>
+
+        <hr class="divider">
+
+        <div class="control-group" style="display:flex;align-items:center;gap:10px;margin-top:8px;">
+            <label style="margin:0;flex:1;">显示网格</label>
+            <input type="checkbox" id="wireframe" style="width:auto;height:auto;">
+        </div>
+
+        <div class="control-group" style="display:flex;align-items:center;gap:10px;margin-top:4px;">
+            <label style="margin:0;flex:1;">自动模式</label>
+            <input type="checkbox" id="autoMode" checked style="width:auto;height:auto;">
+        </div>
+
+        <p style="font-size:10px;color:#555;margin-top:14px;text-align:center;">
+            拖拽鼠标旋转视角 | 滚轮缩放 | 右键平移
+        </p>
+    </div>
+
+    <div id="info-bar">
+        <span>下陷深度: <span class="highlight" id="info-depth">--</span></span>
+        <span>接触面积: <span class="highlight" id="info-area">--</span></span>
+        <span>硬度系数: <span class="highlight" id="info-stiffness">--</span></span>
+    </div>
+
+    <script type="importmap">
+    {
+        "imports": {
+            "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+            "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+        }
+    }
+    </script>
+
+    <script type="module" src="main.js?v=14"></script></script>
+</body>
+</html>
